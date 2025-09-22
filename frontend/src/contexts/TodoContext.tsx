@@ -47,7 +47,7 @@ const initialFilters: TodoFilters = {
 
 const initialPagination: PaginationMeta = {
   current_page: 1,
-  per_page: 10,
+  per_page: 20,
   total: 0,
   total_pages: 0,
   has_next: false,
@@ -277,6 +277,7 @@ export const TodoProvider: React.FC<TodoProviderProps> = ({ children }) => {
     try {
       console.log("Fetching todos with params:", fetchParams);
       dispatch({ type: "SET_LOADING", payload: { key: "todos", value: true } });
+      dispatch({ type: "CLEAR_ERROR" });
 
       const response = await apiService.getTodos(
         fetchParams.page,
@@ -284,23 +285,8 @@ export const TodoProvider: React.FC<TodoProviderProps> = ({ children }) => {
         fetchParams.filters
       );
 
-      // Validasi response lebih detail
-      if (!response) {
-        throw new Error("No response from server");
-      }
-
-      console.log("Raw API Response:", response);
-
-      // Pastikan data dan pagination ada
-      if (!response.data || !response.pagination) {
-        console.error("Invalid response structure:", response);
-        throw new Error("Invalid response format");
-      }
-
-      // Pastikan data adalah array
-      if (!Array.isArray(response.data)) {
-        console.error("Data is not an array:", response.data);
-        throw new Error("Invalid data format");
+      if (!response || !response.data || !response.pagination) {
+        throw new Error("Invalid response format from server");
       }
 
       dispatch({
@@ -310,22 +296,19 @@ export const TodoProvider: React.FC<TodoProviderProps> = ({ children }) => {
           pagination: response.pagination,
         },
       });
-
-      if (response.data.length === 0) {
-        console.log("No todos found");
-      } else {
-        console.log(`Found ${response.data.length} todos`);
-      }
     } catch (error) {
       console.error("Error fetching todos:", error);
-      handleError(error as ApiError);
+      dispatch({
+        type: "SET_ERROR",
+        payload: "Failed to fetch todos. Please try again later.",
+      });
     } finally {
       dispatch({
         type: "SET_LOADING",
         payload: { key: "todos", value: false },
       });
     }
-  }, [fetchParams, handleError]);
+  }, [fetchParams]);
 
   const fetchSummary = useCallback(async () => {
     try {
@@ -335,7 +318,6 @@ export const TodoProvider: React.FC<TodoProviderProps> = ({ children }) => {
       dispatch({ type: "SET_SUMMARY", payload: summary });
     } catch (error) {
       console.error("❌ Failed to fetch summary:", error);
-      // Don't show error for summary as it's not critical
     }
   }, []);
 

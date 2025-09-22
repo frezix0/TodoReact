@@ -15,6 +15,7 @@ import {
 
 class ApiService {
   private client: AxiosInstance;
+  axiosInstance: any;
 
   constructor() {
     this.client = axios.create({
@@ -177,7 +178,9 @@ class ApiService {
       // Debug logging
       console.log("Request URL:", `/todos?${params.toString()}`);
 
-      const response = await this.client.get(`/todos?${params}`);
+      const response = await this.axiosInstance.get(
+        `/todos?${params.toString()}`
+      );
       console.log("Response data:", response.data);
 
       // Validate response structure
@@ -191,6 +194,7 @@ class ApiService {
       throw error;
     }
   }
+
   async getTodo(id: number): Promise<Todo> {
     const response = await this.client.get<Todo>(`/todos/${id}`);
     return response.data;

@@ -1,3 +1,4 @@
+from fastapi import logger
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, or_, desc, asc
 from typing import List, Optional, Dict, Any
@@ -34,6 +35,13 @@ def get_todos(
     try:
         query = db.query(Todo).options(joinedload(Todo.category))
 
+        if skip < 0:
+            skip = 0
+        if limit < 1:
+            limit = 20
+        if limit > 100:
+            limit = 100
+
         # This section should be updated to match the count_todos function
         if search:
             query = query.filter(
@@ -52,25 +60,27 @@ def get_todos(
         if priority is not None:
             query = query.filter(Todo.priority == priority)
         
-        # Validate sort_by field exists
-        valid_sort_fields = ["created_at", "updated_at", "title", "priority", "due_date"]
-        if sort_by not in valid_sort_fields:
-            sort_by = "created_at"
-            
-        # Sorting
+        total = query.count()
+
+        # Apply sorting
         sort_field = getattr(Todo, sort_by, Todo.created_at)
         if sort_order.lower() == "asc":
             query = query.order_by(asc(sort_field))
         else:
             query = query.order_by(desc(sort_field))
         
+        # Apply pagination
         result = query.offset(skip).limit(limit).all()
-        print(f"Found {len(result)} todos")
+        
+        return result, total 
 
-        return result
     except Exception as e:
         print(f"Error in get_todos: {e}")
-        return []
+        return [], 0
+
+    except Exception as e:
+        logger.error(f"Database error in get_todos: {str(e)}")
+        raise Exception(f"Failed to fetch todos: {str(e)}")
 
 def count_todos(
         db: Session,
