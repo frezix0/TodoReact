@@ -32,11 +32,11 @@ const TodoFormModal: React.FC<TodoFormModalProps> = ({
   const priorityOptions = getPriorityOptions();
   const isLoading = loading.creating || loading.updating;
 
-  // FIXED: Better form initialization with safe access
+  // Better form initialization with safe access
   useEffect(() => {
     if (visible) {
       if (isEdit && selectedTodo) {
-        // FIXED: Safe access to nested properties
+        // Safe access to nested properties
         form.setFieldsValue({
           title: selectedTodo.title || "",
           description: selectedTodo.description || "",
@@ -48,7 +48,7 @@ const TodoFormModal: React.FC<TodoFormModalProps> = ({
         form.resetFields();
         form.setFieldsValue({
           priority: "medium" as PriorityType,
-          // FIXED: Set default category if available
+          // Set default category if available
           category_id: categories.length > 0 ? categories[0].id : undefined,
         });
       }
@@ -57,7 +57,7 @@ const TodoFormModal: React.FC<TodoFormModalProps> = ({
 
   const handleSubmit = async (values: any) => {
     try {
-      // FIXED: Better validation and data preparation
+      // Better validation and data preparation
       const todoData = {
         title: values.title.trim(),
         description: values.description?.trim() || undefined,
@@ -66,7 +66,7 @@ const TodoFormModal: React.FC<TodoFormModalProps> = ({
         due_date: values.due_date ? values.due_date.toISOString() : null,
       };
 
-      // FIXED: Validate that category_id exists
+      // Validate that category_id exists
       if (!todoData.category_id) {
         throw new Error("Please select a category");
       }
@@ -80,7 +80,6 @@ const TodoFormModal: React.FC<TodoFormModalProps> = ({
       form.resetFields();
       onCancel(); // Close modal on success
     } catch (error) {
-      // Error is handled in context, but we don't close modal on error
       console.error("Form submission error:", error);
     }
   };
@@ -90,7 +89,7 @@ const TodoFormModal: React.FC<TodoFormModalProps> = ({
     onCancel();
   };
 
-  // FIXED: Check if categories are available
+  // Check if categories are available
   const hasCategoriesAvailable = categories && categories.length > 0;
 
   return (
@@ -104,7 +103,7 @@ const TodoFormModal: React.FC<TodoFormModalProps> = ({
       onCancel={handleCancel}
       footer={null}
       width={600}
-      destroyOnClose
+      destroyOnHidden
       styles={{
         header: {
           background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
@@ -127,7 +126,7 @@ const TodoFormModal: React.FC<TodoFormModalProps> = ({
         />
       }
     >
-      {/* FIXED: Show warning if no categories available */}
+      {/* Show warning if no categories available */}
       {!hasCategoriesAvailable && (
         <div
           style={{
@@ -253,7 +252,7 @@ const TodoFormModal: React.FC<TodoFormModalProps> = ({
                         width: "12px",
                         height: "12px",
                         borderRadius: "50%",
-                        backgroundColor: category.color || "#9ca3af", // FIXED: Safe color access
+                        backgroundColor: category.color || "#9ca3af",
                       }}
                     />
                     {category.name}

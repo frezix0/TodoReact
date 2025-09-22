@@ -35,7 +35,6 @@ const TodoFilters: React.FC<TodoFiltersProps> = ({ className }) => {
   // Local search state for immediate UI feedback
   const [localSearch, setLocalSearch] = useState(filters.search || "");
 
-  // FIXED: Create stable debounced function
   const debouncedSearch = useCallback(
     debounce((value: string) => {
       console.log("Applying search filter:", value);
@@ -49,14 +48,14 @@ const TodoFilters: React.FC<TodoFiltersProps> = ({ className }) => {
     setLocalSearch(filters.search || "");
   }, [filters.search]);
 
-  // FIXED: Real-time search with immediate local update
+  // Real-time search with immediate local update
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    setLocalSearch(value); // Immediate UI update
-    debouncedSearch(value); // Debounced API call
+    setLocalSearch(value);
+    debouncedSearch(value);
   };
 
-  // FIXED: Immediate filter updates (no debounce for dropdowns)
+  //  filter updates
   const handleCategoryChange = (categoryId: number | undefined) => {
     console.log("Category filter changed:", categoryId);
     setFilters({ category_id: categoryId });
@@ -83,7 +82,7 @@ const TodoFilters: React.FC<TodoFiltersProps> = ({ className }) => {
     setFilters({ sort_order: newOrder });
   };
 
-  // FIXED: Clear filters also clears local search
+  // Clear filters also clears local search
   const handleClearFilters = () => {
     console.log("Clearing all filters");
     setLocalSearch(""); // Clear local search state
@@ -122,13 +121,13 @@ const TodoFilters: React.FC<TodoFiltersProps> = ({ className }) => {
       }}
     >
       <Row gutter={[16, 16]} align="middle">
-        {/* Search - FIXED: Uses local state for immediate feedback */}
+        {/* Search */}
         <Col xs={24} sm={12} md={8}>
           <div className="filter-control">
             <Input
               placeholder="Search todos..."
               prefix={<SearchOutlined />}
-              value={localSearch} // Use local state for immediate response
+              value={localSearch}
               onChange={handleSearchChange}
               allowClear={{
                 clearIcon: <ClearOutlined />,
@@ -146,7 +145,7 @@ const TodoFilters: React.FC<TodoFiltersProps> = ({ className }) => {
           </div>
         </Col>
 
-        {/* Category Filter - FIXED: Safe rendering with null checks */}
+        {/* Category Filter */}
         <Col xs={24} sm={12} md={4}>
           <div className="filter-control">
             <Select
@@ -156,7 +155,7 @@ const TodoFilters: React.FC<TodoFiltersProps> = ({ className }) => {
               allowClear
               className="w-full"
               style={{ width: "100%" }}
-              showSearch // Enable search in dropdown
+              showSearch
               filterOption={(input, option) =>
                 (option?.children as any)?.[1]
                   ?.toLowerCase?.()
@@ -169,14 +168,13 @@ const TodoFilters: React.FC<TodoFiltersProps> = ({ className }) => {
                     <div
                       className="w-3 h-3 rounded-full inline-block"
                       style={{
-                        backgroundColor: category.color || "#9ca3af", // FIXED: Safe color access
+                        backgroundColor: category.color || "#9ca3af",
                         width: "12px",
                         height: "12px",
                         borderRadius: "50%",
                       }}
                     />
                     {category.name || "Unnamed Category"}{" "}
-                    {/* FIXED: Safe name access */}
                   </Space>
                 </Option>
               )) || []}
@@ -205,7 +203,7 @@ const TodoFilters: React.FC<TodoFiltersProps> = ({ className }) => {
           </div>
         </Col>
 
-        {/* Priority Filter - FIXED: Safe options rendering */}
+        {/* Priority Filter */}
         <Col xs={24} sm={12} md={3}>
           <div className="filter-control">
             <Select
@@ -279,7 +277,7 @@ const TodoFilters: React.FC<TodoFiltersProps> = ({ className }) => {
         </Col>
       </Row>
 
-      {/* Active Filters Display - FIXED: Safe category name access */}
+      {/* Active Filters Display */}
       {hasActiveFilters && (
         <div
           style={{
@@ -346,7 +344,7 @@ const TodoFilters: React.FC<TodoFiltersProps> = ({ className }) => {
             )}
           </Space>
 
-          {/* Results Count - FIXED: Safe pagination access */}
+          {/* Results Count */}
           <div style={{ marginTop: "8px" }}>
             <Text style={{ fontSize: "11px", color: "#9ca3af" }}>
               {pagination

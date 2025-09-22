@@ -33,20 +33,34 @@ const TodoList: React.FC<TodoListProps> = ({ className }) => {
     useTodos();
 
   const handleToggleComplete = (todo: Todo) => {
+    if (!todo?.id) return;
     toggleTodoCompletion(todo.id, !todo.completed);
   };
 
   const handleEdit = (todo: Todo) => {
+    if (!todo?.id) return;
     openEditModal(todo);
   };
 
   const handleDelete = (todoId: number) => {
+    if (!todoId) return;
     deleteTodo(todoId);
   };
 
   const renderTodoItem = (todo: Todo) => {
-    const priorityConfig = getPriorityConfig(todo.priority);
+    // Safe property access with fallbacks
+    if (!todo || !todo.id) {
+      return null;
+    }
+
+    const priorityConfig = getPriorityConfig(todo.priority || "medium");
     const isTaskOverdue = isOverdue(todo.due_date, todo.completed);
+    const todoTitle = todo.title || "Untitled Todo";
+    const todoDescription = todo.description || "";
+
+    // Safe category access
+    const categoryName = todo.category?.name || "No Category";
+    const categoryColor = todo.category?.color || "#9ca3af";
 
     let cardClasses = "todo-item-card w-full";
 
@@ -56,7 +70,7 @@ const TodoList: React.FC<TodoListProps> = ({ className }) => {
       if (isTaskOverdue) {
         cardClasses += " overdue";
       } else {
-        cardClasses += ` priority-${todo.priority}`;
+        cardClasses += ` priority-${todo.priority || "medium"}`;
       }
     }
 
@@ -108,7 +122,7 @@ const TodoList: React.FC<TodoListProps> = ({ className }) => {
               }
               description={
                 <span style={{ color: "#374151" }}>
-                  Are you sure you want to delete this todo?
+                  Are you sure you want to delete "{todoTitle}"?
                 </span>
               }
               onConfirm={() => handleDelete(todo.id)}
@@ -143,7 +157,7 @@ const TodoList: React.FC<TodoListProps> = ({ className }) => {
           >
             {/* Checkbox with better styling */}
             <Checkbox
-              checked={todo.completed}
+              checked={todo.completed || false}
               onChange={() => handleToggleComplete(todo)}
               disabled={ui.loading.updating}
               style={{
@@ -172,9 +186,11 @@ const TodoList: React.FC<TodoListProps> = ({ className }) => {
                       fontWeight: 600,
                       textDecoration: todo.completed ? "line-through" : "none",
                       color: todo.completed ? "#6b7280" : "#1f2937",
+                      wordBreak: "break-word",
                     }}
+                    title={todoTitle}
                   >
-                    {todo.title}
+                    {todoTitle}
                   </Title>
                 </div>
 
@@ -213,7 +229,7 @@ const TodoList: React.FC<TodoListProps> = ({ className }) => {
               </div>
 
               {/* Description */}
-              {todo.description && (
+              {todoDescription && (
                 <div style={{ marginBottom: "16px" }}>
                   <Paragraph
                     style={{
@@ -239,7 +255,7 @@ const TodoList: React.FC<TodoListProps> = ({ className }) => {
                       ),
                     }}
                   >
-                    {todo.description}
+                    {todoDescription}
                   </Paragraph>
                 </div>
               )}
@@ -272,7 +288,7 @@ const TodoList: React.FC<TodoListProps> = ({ className }) => {
                         width: "16px",
                         height: "16px",
                         borderRadius: "50%",
-                        backgroundColor: todo.category.color,
+                        backgroundColor: categoryColor,
                         border: "2px solid white",
                         boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
                       }}
@@ -283,8 +299,9 @@ const TodoList: React.FC<TodoListProps> = ({ className }) => {
                         fontWeight: 500,
                         color: todo.completed ? "#9ca3af" : "#4b5563",
                       }}
+                      title={categoryName}
                     >
-                      {todo.category.name}
+                      {categoryName}
                     </Text>
                   </div>
 
@@ -322,29 +339,32 @@ const TodoList: React.FC<TodoListProps> = ({ className }) => {
                       </Text>
                     </div>
                   )}
-                  {/* Right side: Created date */}
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "6px",
-                    }}
-                  >
-                    <ClockCircleOutlined
+
+                  {/* Created date */}
+                  {todo.created_at && (
+                    <div
                       style={{
-                        color: "#9ca3af",
-                        fontSize: "12px",
-                      }}
-                    />
-                    <Text
-                      style={{
-                        fontSize: "12px",
-                        color: todo.completed ? "#9ca3af" : "#9ca3af",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
                       }}
                     >
-                      Created {formatDate(todo.created_at)}
-                    </Text>
-                  </div>
+                      <ClockCircleOutlined
+                        style={{
+                          color: "#9ca3af",
+                          fontSize: "12px",
+                        }}
+                      />
+                      <Text
+                        style={{
+                          fontSize: "12px",
+                          color: todo.completed ? "#9ca3af" : "#9ca3af",
+                        }}
+                      >
+                        Created {formatDate(todo.created_at)}
+                      </Text>
+                    </div>
+                  )}
                 </Space>
               </div>
             </div>
@@ -354,6 +374,7 @@ const TodoList: React.FC<TodoListProps> = ({ className }) => {
     );
   };
 
+  // Better loading state handling
   if (ui.loading.todos) {
     return (
       <div className={className}>
@@ -366,7 +387,47 @@ const TodoList: React.FC<TodoListProps> = ({ className }) => {
     );
   }
 
-  if (todos.length === 0) {
+  // FBetter error state handling
+  if (ui.error) {
+    return (
+      <div className={className}>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "64px 32px",
+            textAlign: "center",
+          }}
+        >
+          <Empty
+            description={
+              <div>
+                <Text
+                  style={{
+                    fontSize: "16px",
+                    fontWeight: 500,
+                    color: "#ef4444",
+                    display: "block",
+                    marginBottom: "8px",
+                  }}
+                >
+                  Failed to load todos
+                </Text>
+                <Text style={{ color: "#9ca3af", fontSize: "14px" }}>
+                  {ui.error}
+                </Text>
+              </div>
+            }
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Better empty state handling
+  if (!todos || todos.length === 0) {
     return (
       <div className={className}>
         <div
@@ -405,10 +466,13 @@ const TodoList: React.FC<TodoListProps> = ({ className }) => {
     );
   }
 
+  // Safe todos filtering
+  const validTodos = todos.filter((todo) => todo && todo.id);
+
   return (
     <div className={className}>
       <List
-        dataSource={todos}
+        dataSource={validTodos}
         renderItem={renderTodoItem}
         style={{
           padding: 0,

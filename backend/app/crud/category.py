@@ -1,4 +1,3 @@
-# Create backend/app/crud/category.py
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List, Optional
@@ -34,7 +33,7 @@ def get_categories_with_counts(db: Session) -> List[dict]:
                 "name": category.name,
                 "color": category.color,
                 "created_at": category.created_at,
-                "todo_count": todo_count or 0
+                "todo_count": todo_count if todo_count is not None else 0
             }
             categories_with_counts.append(category_dict)
             
@@ -105,4 +104,4 @@ def delete_category(db: Session, category_id: int) -> bool:
     except Exception as e:
         db.rollback()
         print(f"Error deleting category {category_id}: {e}")
-        return False
+        raise e

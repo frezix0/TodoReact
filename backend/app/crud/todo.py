@@ -1,25 +1,33 @@
-from fastapi import logger
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, or_, desc, asc
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 from datetime import datetime
 from ..models import Todo, Category, PriorityEnum
 from ..schemas import TodoCreate, TodoUpdate, TodoStatusUpdate
 
 def create_todo(db: Session, todo: TodoCreate) -> Todo:
-    db_todo = Todo(**todo.model_dump())
-    db.add(db_todo)
-    db.commit()
-    db.refresh(db_todo)
-    return db_todo
+    try:
+        db_todo = Todo(**todo.model_dump())
+        db.add(db_todo)
+        db.commit()
+        db.refresh(db_todo)
+        return db_todo
+    except Exception as e:
+        db.rollback()
+        print(f"Error creating todo: {e}")
+        raise e
 
 def get_todo(db: Session, todo_id: int) -> Optional[Todo]:
-    return (
-        db.query(Todo)
-        .options(joinedload(Todo.category))
-        .filter(Todo.id == todo_id)
-        .first()
-    )
+    try:
+        return (
+            db.query(Todo)
+            .options(joinedload(Todo.category))
+            .filter(Todo.id == todo_id)
+            .first()
+        )
+    except Exception as e:
+        print(f"Error fetching todo {todo_id}: {e}")
+        return None
 
 def get_todos(
     db: Session,
@@ -31,10 +39,13 @@ def get_todos(
     priority: Optional[PriorityEnum] = None,
     sort_by: str = "created_at",
     sort_order: str = "desc"
-) -> List[Todo]:
+) -> Tuple[List[Todo], int]:
+    """Returns tuple of (todos, total_count)"""
     try:
+        # Build base query
         query = db.query(Todo).options(joinedload(Todo.category))
 
+        # Validate pagination parameters
         if skip < 0:
             skip = 0
         if limit < 1:
@@ -42,12 +53,13 @@ def get_todos(
         if limit > 100:
             limit = 100
 
-        # This section should be updated to match the count_todos function
+        # Apply filters
         if search:
+            search_term = f"%{search}%"
             query = query.filter(
                 or_(
-                    Todo.title.ilike(f"%{search}%"),
-                    Todo.description.ilike(f"%{search}%") # Add this line to match
+                    Todo.title.ilike(search_term),
+                    Todo.description.ilike(search_term)
                 )
             )
 
@@ -60,97 +72,120 @@ def get_todos(
         if priority is not None:
             query = query.filter(Todo.priority == priority)
         
+        # Get total count before applying pagination
         total = query.count()
 
         # Apply sorting
-        sort_field = getattr(Todo, sort_by, Todo.created_at)
+        if hasattr(Todo, sort_by):
+            sort_field = getattr(Todo, sort_by)
+        else:
+            sort_field = Todo.created_at
+            
         if sort_order.lower() == "asc":
             query = query.order_by(asc(sort_field))
         else:
             query = query.order_by(desc(sort_field))
         
         # Apply pagination
-        result = query.offset(skip).limit(limit).all()
+        todos = query.offset(skip).limit(limit).all()
         
-        return result, total 
+        return todos, total
 
     except Exception as e:
         print(f"Error in get_todos: {e}")
         return [], 0
 
-    except Exception as e:
-        logger.error(f"Database error in get_todos: {str(e)}")
-        raise Exception(f"Failed to fetch todos: {str(e)}")
-
 def count_todos(
-        db: Session,
-        search: Optional[str] = None,
-        category_id: Optional[int] = None,
-        completed: Optional[bool] = None,
-        priority: Optional[PriorityEnum] = None
-    ) -> int:
-    query = db.query(Todo)
+    db: Session,
+    search: Optional[str] = None,
+    category_id: Optional[int] = None,
+    completed: Optional[bool] = None,
+    priority: Optional[PriorityEnum] = None
+) -> int:
+    """Count todos with applied filters"""
+    try:
+        query = db.query(Todo)
 
-    if search:
-        query = query.filter(
-            or_(
-                Todo.title.ilike(f"%{search}%"),
-                Todo.description.ilike(f"%{search}%")
+        # Apply same filters as get_todos
+        if search:
+            search_term = f"%{search}%"
+            query = query.filter(
+                or_(
+                    Todo.title.ilike(search_term),
+                    Todo.description.ilike(search_term)
+                )
             )
-        )
-    
-    if category_id is not None:
-        query = query.filter(Todo.category_id == category_id)
-    
-    if completed is not None:
-        query = query.filter(Todo.completed == completed)
-    
-    if priority is not None:
-        query = query.filter(Todo.priority == priority)
-    
-    return query.count()
+        
+        if category_id is not None:
+            query = query.filter(Todo.category_id == category_id)
+        
+        if completed is not None:
+            query = query.filter(Todo.completed == completed)
+        
+        if priority is not None:
+            query = query.filter(Todo.priority == priority)
+        
+        return query.count()
+    except Exception as e:
+        print(f"Error counting todos: {e}")
+        return 0
 
 def update_todo(
-        db: Session, 
-        todo_id: int, 
-        todo_update: TodoUpdate
-    ) -> Optional[Todo]:
-    db_todo = db.query(Todo).filter(Todo.id == todo_id).first()
-    if not db_todo:
+    db: Session, 
+    todo_id: int, 
+    todo_update: TodoUpdate
+) -> Optional[Todo]:
+    try:
+        db_todo = db.query(Todo).filter(Todo.id == todo_id).first()
+        if not db_todo:
+            return None
+        
+        update_data = todo_update.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(db_todo, field, value)
+        
+        db_todo.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(db_todo)
+        return db_todo
+    except Exception as e:
+        db.rollback()
+        print(f"Error updating todo {todo_id}: {e}")
         return None
-    
-    update_data = todo_update.model_dump(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(db_todo, field, value)
-    
-    db_todo.updated_at = datetime.utcnow()
-    db.commit()
-    db.refresh(db_todo)
-    return db_todo
 
 def update_todo_status(
-        db: Session, 
-        todo_id: int, 
-        status_update: TodoStatusUpdate
-    ) -> Optional[Todo]:
-    db_todo = db.query(Todo).filter(Todo.id == todo_id).first()
-    if not db_todo:
+    db: Session, 
+    todo_id: int, 
+    status_update: TodoStatusUpdate
+) -> Optional[Todo]:
+    try:
+        db_todo = db.query(Todo).filter(Todo.id == todo_id).first()
+        if not db_todo:
+            return None
+        
+        db_todo.completed = status_update.completed
+        db_todo.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(db_todo)
+        return db_todo
+    except Exception as e:
+        db.rollback()
+        print(f"Error updating todo status {todo_id}: {e}")
         return None
-    
-    db_todo.completed = status_update.completed
-    db_todo.updated_at = datetime.utcnow()
-    db.commit()
-    db.refresh(db_todo)
-    return db_todo
 
 def delete_todo(db: Session, todo_id: int) -> bool:
-    db_todo = db.query(Todo).filter(Todo.id == todo_id).first()
-    if not db_todo:
+    try:
+        db_todo = db.query(Todo).filter(Todo.id == todo_id).first()
+        if not db_todo:
+            return False
+        
+        db.delete(db_todo)
+        db.commit()
+        return True
+    except Exception as e:
+        db.rollback()
+        print(f"Error deleting todo {todo_id}: {e}")
         return False
-    
-    db.delete(db_todo)
-    db.commit()
-    return True
 
 def get_todo_summary(db: Session) -> Dict[str, Any]:
     try:
@@ -158,22 +193,17 @@ def get_todo_summary(db: Session) -> Dict[str, Any]:
         completed = db.query(Todo).filter(Todo.completed == True).count()
         pending = total - completed
 
-        # Safely get priority counts
-        try:
-            high_priority = db.query(Todo).filter(Todo.priority == PriorityEnum.HIGH).count()
-            medium_priority = db.query(Todo).filter(Todo.priority == PriorityEnum.MEDIUM).count()
-            low_priority = db.query(Todo).filter(Todo.priority == PriorityEnum.LOW).count()
-        except:
-            high_priority = medium_priority = low_priority = 0
+        # Get priority counts with safe handling
+        high_priority = db.query(Todo).filter(Todo.priority == PriorityEnum.HIGH).count()
+        medium_priority = db.query(Todo).filter(Todo.priority == PriorityEnum.MEDIUM).count()
+        low_priority = db.query(Todo).filter(Todo.priority == PriorityEnum.LOW).count()
         
-        # Safely get overdue count
-        try:
-            overdue = db.query(Todo).filter(
-                Todo.due_date < datetime.utcnow(),
-                Todo.completed == False
-            ).count()
-        except:
-            overdue = 0
+        # Get overdue count with safe handling
+        current_time = datetime.utcnow()
+        overdue = db.query(Todo).filter(
+            Todo.due_date < current_time,
+            Todo.completed == False
+        ).count()
         
         return {
             "total": total,
@@ -187,6 +217,11 @@ def get_todo_summary(db: Session) -> Dict[str, Any]:
     except Exception as e:
         print(f"Error in get_todo_summary: {e}")
         return {
-            "total": 0, "completed": 0, "pending": 0,
-            "high_priority": 0, "medium_priority": 0, "low_priority": 0, "overdue": 0
+            "total": 0,
+            "completed": 0,
+            "pending": 0,
+            "high_priority": 0,
+            "medium_priority": 0,
+            "low_priority": 0,
+            "overdue": 0
         }
